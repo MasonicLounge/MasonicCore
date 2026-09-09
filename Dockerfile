@@ -2,6 +2,8 @@
 
 FROM golang:1.27-alpine AS builder
 
+ARG VERSION=dev
+
 WORKDIR /src
 
 COPY go.mod go.sum ./
@@ -11,7 +13,7 @@ COPY cmd/ ./cmd/
 COPY internal/ ./internal/
 COPY migrations/ ./migrations/
 
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /out/server ./cmd/server
 
 FROM alpine:3.20
 

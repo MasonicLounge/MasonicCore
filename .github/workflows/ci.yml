@@ -63,5 +63,6 @@ jobs:
           context: .
           push: true
           tags: ghcr.io/masoniclounge/masoniccore:${{ steps.meta.outputs.tag }}
+          build-args: VERSION=${{ steps.meta.outputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-09
+
 ### Added / Добавлено
+
+- GNU GPL v3.0 license file (`LICENSE`) added to the repository.
+- Лицензия GNU GPL v3.0 (`LICENSE`) добавлена в репозиторий.
+
+- Version injection: `/api/v1/version` returns the real backend version baked at build time via `-ldflags` (`ARG VERSION` in the Dockerfile, CI passes the git tag).
+- Инъекция версии: `/api/v1/version` возвращает реальную версию бэкенда, зашитую на этапе сборки через `-ldflags` (`ARG VERSION` в Dockerfile, CI передаёт git-тег).
 
 - Bilingual README (`README.md`) describing the module: responsibility, implemented features, tech stack, repository layout, development, tests and license; dynamic shields.io badges (CI, commit activity, contributors, last commit).
 - Двуязычное README (`README.md`): назначение модуля, реализованные возможности, стек, структура репозитория, разработка, тесты и лицензия; динамические бейджи shields.io (CI, активность коммитов, контрибуторы, последний коммит).

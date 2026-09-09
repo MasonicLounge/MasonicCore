@@ -109,8 +109,7 @@ See `release/docker-compose.yml` for the full orchestrated stack.
 
 ## License / Лицензия
 
-GPL v3.0 (planned; LICENSE file lands in an upcoming release). / GPL v3.0
-(запланировано, файл LICENSE появится в одном из следующих релизов).
+GNU GPL v3.0 — see the repository `LICENSE` file. / GNU GPL v3.0 — см. файл `LICENSE` в репозитории.
 
 ## Contributors / Контрибьюторы
 
