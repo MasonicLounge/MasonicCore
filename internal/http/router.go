@@ -11,6 +11,7 @@ import (
 	"github.com/masoniclounge/masoniccore/internal/config"
 	"github.com/masoniclounge/masoniccore/internal/db"
 	"github.com/masoniclounge/masoniccore/internal/handlers"
+	"github.com/masoniclounge/masoniccore/internal/models"
 	"github.com/masoniclounge/masoniccore/internal/services"
 	"github.com/masoniclounge/masoniccore/internal/store"
 )
@@ -31,9 +32,19 @@ func NewRouter(deps Dependencies) (http.Handler, error) {
 	sessions := store.NewSessionStore(deps.Database.Pool())
 	authSvc := services.NewAuthService(users, sessions, hasher, jwtm, deps.Config)
 
+	groupsStore := store.NewGroupStore(deps.Database.Pool())
+	threadsStore := store.NewThreadStore(deps.Database.Pool())
+	postsStore := store.NewPostStore(deps.Database.Pool())
+	groupSvc := services.NewGroupService(groupsStore, threadsStore)
+	threadSvc := services.NewThreadService(groupsStore, threadsStore)
+	postSvc := services.NewPostService(postsStore, threadsStore)
+
 	health := handlers.NewHealth(deps.Database)
 	versionHandler := handlers.NewVersion(deps.Database, deps.Version)
 	auth := handlers.NewAuth(authSvc, deps.Config)
+	groups := handlers.NewGroups(groupSvc)
+	threads := handlers.NewThreads(threadSvc)
+	posts := handlers.NewPosts(postSvc)
 
 	r := chi.NewRouter()
 
@@ -59,6 +70,54 @@ func NewRouter(deps Dependencies) (http.Handler, error) {
 			r.Group(func(r chi.Router) {
 				r.Use(handlers.RequireAuth(jwtm))
 				r.Get("/me", auth.Me)
+			})
+		})
+
+		r.Route("/groups", func(r chi.Router) {
+			r.Get("/", groups.List)
+
+			r.Group(func(r chi.Router) {
+				r.Use(handlers.RequireAuth(jwtm))
+				r.Use(handlers.RequireRole(models.RoleAdmin))
+				r.Post("/", groups.Create)
+				r.Patch("/{groupID}", groups.Update)
+				r.Delete("/{groupID}", groups.Delete)
+			})
+
+			r.Get("/{groupID}", groups.Get)
+
+			r.Route("/{groupID}/threads", func(r chi.Router) {
+				r.Get("/", threads.ListByGroup)
+				r.Group(func(r chi.Router) {
+					r.Use(handlers.RequireAuth(jwtm))
+					r.Post("/", threads.Create)
+				})
+			})
+		})
+
+		r.Route("/threads", func(r chi.Router) {
+			r.Get("/{threadID}", threads.Get)
+
+			r.Group(func(r chi.Router) {
+				r.Use(handlers.RequireAuth(jwtm))
+				r.Patch("/{threadID}", threads.Update)
+				r.Delete("/{threadID}", threads.Delete)
+			})
+
+			r.Route("/{threadID}/posts", func(r chi.Router) {
+				r.Get("/", posts.ListByThread)
+				r.Group(func(r chi.Router) {
+					r.Use(handlers.RequireAuth(jwtm))
+					r.Post("/", posts.Create)
+				})
+			})
+		})
+
+		r.Route("/posts", func(r chi.Router) {
+			r.Group(func(r chi.Router) {
+				r.Use(handlers.RequireAuth(jwtm))
+				r.Patch("/{postID}", posts.Update)
+				r.Delete("/{postID}", posts.Delete)
 			})
 		})
 	})

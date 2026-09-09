@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added / Добавлено
 
+- Core CRUD: groups (REST under `/api/v1/groups`, admin-managed, hierarchical `parent_id`, unique `slug`), threads (`/api/v1/groups/{groupID}/threads`, `/api/v1/threads`), posts (`/api/v1/posts`). Paginated lists (`limit`/`offset`), view counters, pin/lock moderation, locked threads reject replies, thread post/last-activity stats maintained on post create/delete, group deletion blocked while non-empty.
+- Core CRUD: группы (REST по `/api/v1/groups`, управляются админом, иерархический `parent_id`, уникальный `slug`), темы (`/api/v1/groups/{groupID}/threads`, `/api/v1/threads`), посты (`/api/v1/posts`). Пагинация списков (`limit`/`offset`), счётчик просмотров, модерация pin/lock, запрет ответов в заблокированных темах, поддержка статистики постов/последней активности темы при создании и удалении постов, блокировка удаления непустой группы.
+
+- Migration `00003`: `groups`, `threads`, `posts` tables with indexes on group/author and thread activity ordering.
+- Миграция `00003`: таблицы `groups`, `threads`, `posts` с индексами по группе/автору и сортировкой по активности.
+
+- Authorization: role guard middleware `RequireRole` (used for admin-only routes); service layer enforces owner/moderation rules for thread and post mutation.
+- Авторизация: middleware-гард ролей `RequireRole` (используется на админских маршрутах); слой сервисов проверяет права владельца/модератора при изменении тем и постов.
+
 - Authentication: registration (`POST /api/v1/auth/register`), login (`/auth/login`), access-token refresh (`/auth/refresh`), logout (`/auth/logout`), profile (`/auth/me`). Roles: every new account gets the `member` role.
 - Аутентификация: регистрация (`POST /api/v1/auth/register`), вход (`/auth/login`), обновление access-токена (`/auth/refresh`), выход (`/auth/logout`), профиль (`/auth/me`). Роли: каждая новая учётка получает роль `member`.
 
@@ -35,3 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `.gitattributes` — LF normalization for all text files; eliminates CRLF warnings on Windows.
 - `.gitattributes` — нормализация LF для всех текстовых файлов; устраняет CRLF-предупреждения на Windows.
+
+### Fixed / Исправлено
+
+- Session IP column (`inet`) is now scanned as `text`: pgx cannot decode binary `inet` into a `*string`, which broke login/refresh with a 500.
+- Колонка IP сессии (`inet`) теперь сканируется как `text`: pgx не умеет декодировать бинарный `inet` в `*string`, из-за чего вход/обновление токена падали с 500.

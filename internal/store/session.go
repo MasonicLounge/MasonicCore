@@ -12,7 +12,7 @@ import (
 	"github.com/masoniclounge/masoniccore/internal/models"
 )
 
-const sessionColumns = `id, user_id, token_hash, user_agent, ip, created_at, expires_at, revoked_at`
+const sessionColumns = `id, user_id, token_hash, user_agent, ip::text AS ip, created_at, expires_at, revoked_at`
 
 // SessionStore provides data access to refresh sessions.
 type SessionStore struct {
