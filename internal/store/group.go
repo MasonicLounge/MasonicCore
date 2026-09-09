@@ -29,7 +29,11 @@ func (s *GroupStore) Create(ctx context.Context, g models.NewGroup) (*models.Gro
 		 VALUES ($1, $2, $3, $4, $5)
 		 RETURNING `+groupColumns,
 		g.Name, g.Slug, g.Description, g.ParentID, g.SortOrder)
-	return scanGroup(row)
+	created, err := scanGroup(row)
+	if isUniqueViolation(err) {
+		return nil, ErrConflict
+	}
+	return created, err
 }
 
 // List returns all groups ordered by sort order then name.

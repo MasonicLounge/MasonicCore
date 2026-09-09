@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added / Добавлено
 
+- Integration test suite (`internal/integration`) covering install flow, auth, core CRUD (groups/threads/posts) and admin services against a real PostgreSQL via `TEST_DATABASE_URL`; CI runs it against a `postgres:16` service container.
+- Интеграционные тесты (`internal/integration`): мастер установки, авторизация, базовый CRUD (группы/темы/посты) и сервисы админки против реального PostgreSQL через `TEST_DATABASE_URL`; CI запускает их против сервисного контейнера `postgres:16`.
+
 - CI workflow (GitHub Actions): `go vet` + `go test` on every push/PR; publishes the container image to `ghcr.io/masoniclounge/masoniccore:<version>` on release tags `vX.Y.Z`.
 - CI workflow (GitHub Actions): `go vet` + `go test` на каждый push/PR; публикация образа контейнера в `ghcr.io/masoniclounge/masoniccore:<version>` по релизным тегам `vX.Y.Z`.
 
