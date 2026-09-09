@@ -1,6 +1,6 @@
 # MasonicCore
 
-[![CI](https://img.shields.io/github/actions/workflow/status/masoniclounge/MasonicCore/ci.yml?branch=MVP&label=CI)](https://github.com/masoniclounge/MasonicCore/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/masoniclounge/MasonicCore/ci.yml?branch=dev&label=CI)](https://github.com/masoniclounge/MasonicCore/actions)
 [![Commit activity](https://img.shields.io/github/commit-activity/m/masoniclounge/MasonicCore)](https://github.com/masoniclounge/MasonicCore/commits)
 [![Contributors](https://img.shields.io/github/contributors/masoniclounge/MasonicCore)](https://github.com/masoniclounge/MasonicCore/graphs/contributors)
 [![Last commit](https://img.shields.io/github/last-commit/masoniclounge/MasonicCore)](https://github.com/masoniclounge/MasonicCore/commits)

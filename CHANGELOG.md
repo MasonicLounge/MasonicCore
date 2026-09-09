@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Public forum settings: `GET /api/v1/settings` returns `forum_name` for anonymous visitors (used by the frontend for the brand name and document title).
 - Публичные настройки форума: `GET /api/v1/settings` возвращает `forum_name` для анонимных посетителей (используется фронтендом для названия в шапке и заголовке вкладки).
 
+### Changed / Изменено
+
+- README CI badge now points at the `dev` integration branch instead of `MVP`.
+- В README бейдж CI теперь указывает на интеграционную ветку `dev` вместо `MVP`.
+
 ## [0.1.0] - 2026-09-09
 
 ### Added / Добавлено
