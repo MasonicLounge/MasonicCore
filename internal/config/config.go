@@ -20,6 +20,16 @@ type Config struct {
 
 	RefreshCookieName   string
 	RefreshCookieSecure bool
+
+	S3Endpoint       string // MinIO/S3 endpoint, e.g. "localhost:9000"
+	S3AccessKey      string
+	S3SecretKey      string
+	S3Bucket         string // default bucket for uploaded media
+	S3Region         string
+	S3UseSSL         bool
+	S3ForcePathStyle bool
+
+	MediaBaseURL string // public base prefix for stored media, e.g. "/media"
 }
 
 // Load reads configuration from environment variables, applying defaults.
@@ -36,6 +46,16 @@ func Load() Config {
 
 		RefreshCookieName:   getenv("REFRESH_COOKIE_NAME", "masonic_refresh"),
 		RefreshCookieSecure: getBool("REFRESH_COOKIE_SECURE", false),
+
+		S3Endpoint:       getenv("S3_ENDPOINT", ""),
+		S3AccessKey:      getenv("S3_ACCESS_KEY", ""),
+		S3SecretKey:      getenv("S3_SECRET_KEY", ""),
+		S3Bucket:         getenv("S3_BUCKET", "masonic"),
+		S3Region:         getenv("S3_REGION", "us-east-1"),
+		S3UseSSL:         getBool("S3_USE_SSL", false),
+		S3ForcePathStyle: getBool("S3_FORCE_PATH_STYLE", true),
+
+		MediaBaseURL: getenv("MEDIA_BASE_URL", "/media"),
 	}
 }
 
@@ -46,6 +66,9 @@ func (c Config) Validate() error {
 	}
 	if len(c.JWTSecret) < 32 {
 		return errors.New("JWT_SECRET is required and must be at least 32 characters")
+	}
+	if c.S3Endpoint == "" || c.S3AccessKey == "" || c.S3SecretKey == "" {
+		return errors.New("S3_ENDPOINT, S3_ACCESS_KEY and S3_SECRET_KEY are required")
 	}
 	return nil
 }

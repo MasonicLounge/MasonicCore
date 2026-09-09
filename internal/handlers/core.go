@@ -57,6 +57,12 @@ func writeCoreError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusNotFound, "thread_not_found", "Thread not found")
 	case errors.Is(err, services.ErrPostNotFound):
 		writeError(w, http.StatusNotFound, "post_not_found", "Post not found")
+	case errors.Is(err, services.ErrAttachmentNotFound):
+		writeError(w, http.StatusNotFound, "attachment_not_found", "Attachment not found")
+	case errors.Is(err, services.ErrFileTooLarge):
+		writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "File is too large")
+	case errors.Is(err, services.ErrUnsupportedType):
+		writeError(w, http.StatusUnsupportedMediaType, "unsupported_content_type", "File type is not supported")
 	case errors.Is(err, services.ErrThreadLocked):
 		writeError(w, http.StatusConflict, "thread_locked", "Thread is locked")
 	case errors.Is(err, services.ErrNotEmpty):

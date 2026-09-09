@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added / Добавлено
 
+- Media storage via S3 (MinIO): avatar upload (`POST /api/v1/media/avatar`, 2 MiB cap, `image/*` only), post attachments (`POST /api/v1/media/attachments`, 20 MiB cap, optional `post_id`), attachment deletion (`DELETE /api/v1/media/attachments/{id}`, owner or moderator), public media serving at `/media/{bucket}/...` with long-lived cache headers. Built on `minio-go`, bucket auto-created on startup.
+- Хранилище медиа на S3 (MinIO): загрузка аватара (`POST /api/v1/media/avatar`, до 2 МиБ, только `image/*`), вложения к постам (`POST /api/v1/media/attachments`, до 20 МиБ, опциональный `post_id`), удаление вложения (`DELETE /api/v1/media/attachments/{id}`, владелец или модератор), публичная раздача медиа по `/media/{bucket}/...` с долгим кэшированием. Реализовано на `minio-go`, бакет создаётся автоматически при старте.
+
+- Migration `00004`: `attachments` table (S3 metadata + `post_id`/`owner_id` relations, unique `storage_key`, `public_url`).
+- Миграция `00004`: таблица `attachments` (метаданные S3 + связи `post_id`/`owner_id`, уникальный `storage_key`, `public_url`).
+
+- Config keys for object storage (`S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_REGION`, `S3_USE_SSL`, `S3_FORCE_PATH_STYLE`, `MEDIA_BASE_URL`); `.env.example` extended accordingly.
+- Ключи конфигурации объектного хранилища (`S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_REGION`, `S3_USE_SSL`, `S3_FORCE_PATH_STYLE`, `MEDIA_BASE_URL`); `.env.example` дополнен.
+
 - Core CRUD: groups (REST under `/api/v1/groups`, admin-managed, hierarchical `parent_id`, unique `slug`), threads (`/api/v1/groups/{groupID}/threads`, `/api/v1/threads`), posts (`/api/v1/posts`). Paginated lists (`limit`/`offset`), view counters, pin/lock moderation, locked threads reject replies, thread post/last-activity stats maintained on post create/delete, group deletion blocked while non-empty.
 - Core CRUD: группы (REST по `/api/v1/groups`, управляются админом, иерархический `parent_id`, уникальный `slug`), темы (`/api/v1/groups/{groupID}/threads`, `/api/v1/threads`), посты (`/api/v1/posts`). Пагинация списков (`limit`/`offset`), счётчик просмотров, модерация pin/lock, запрет ответов в заблокированных темах, поддержка статистики постов/последней активности темы при создании и удалении постов, блокировка удаления непустой группы.
 
