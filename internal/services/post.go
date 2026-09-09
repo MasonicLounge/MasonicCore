@@ -10,15 +10,19 @@ import (
 	"github.com/masoniclounge/masoniccore/internal/store"
 )
 
+// maxPostAttachments caps how many files may be attached to a single post.
+const maxPostAttachments = 10
+
 // PostService contains business logic for posts.
 type PostService struct {
-	posts   *store.PostStore
-	threads *store.ThreadStore
+	posts       *store.PostStore
+	threads     *store.ThreadStore
+	attachments *store.AttachmentStore
 }
 
 // NewPostService creates a PostService.
-func NewPostService(posts *store.PostStore, threads *store.ThreadStore) *PostService {
-	return &PostService{posts: posts, threads: threads}
+func NewPostService(posts *store.PostStore, threads *store.ThreadStore, attachments *store.AttachmentStore) *PostService {
+	return &PostService{posts: posts, threads: threads, attachments: attachments}
 }
 
 // ListByThread returns posts of a thread in chronological order.
@@ -32,8 +36,8 @@ func (s *PostService) ListByThread(ctx context.Context, threadID uuid.UUID, limi
 	return s.posts.ListByThread(ctx, threadID, limit, offset)
 }
 
-// Create adds a reply to a thread and bumps its activity stats.
-func (s *PostService) Create(ctx context.Context, threadID uuid.UUID, authorID uuid.UUID, body string) (*models.PostSummary, error) {
+// Create adds a reply to a thread, optionally linking owned attachments.
+func (s *PostService) Create(ctx context.Context, threadID uuid.UUID, authorID uuid.UUID, body string, attachmentIDs []uuid.UUID) (*models.PostSummary, error) {
 	th, err := s.threads.GetByID(ctx, threadID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, ErrThreadNotFound
@@ -47,10 +51,22 @@ func (s *PostService) Create(ctx context.Context, threadID uuid.UUID, authorID u
 	if err := validateBody(body); err != nil {
 		return nil, err
 	}
+	if len(attachmentIDs) > maxPostAttachments {
+		return nil, ErrInvalidInput
+	}
 
 	p, err := s.posts.Create(ctx, models.NewPost{ThreadID: threadID, AuthorID: authorID, Body: body})
 	if err != nil {
 		return nil, err
+	}
+	if len(attachmentIDs) > 0 {
+		linked, err := s.attachments.LinkToPost(ctx, p.ID, authorID, attachmentIDs)
+		if err != nil {
+			return nil, err
+		}
+		if linked != int64(len(attachmentIDs)) {
+			return nil, ErrForbidden
+		}
 	}
 	if err := s.threads.BumpPost(ctx, threadID, p.CreatedAt); err != nil {
 		return nil, err

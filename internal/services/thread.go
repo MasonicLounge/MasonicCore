@@ -19,10 +19,11 @@ const (
 
 // CreateThreadInput carries the fields required to start a thread.
 type CreateThreadInput struct {
-	GroupID  uuid.UUID
-	AuthorID uuid.UUID
-	Title    string
-	Body     string
+	GroupID       uuid.UUID
+	AuthorID      uuid.UUID
+	Title         string
+	Body          string
+	AttachmentIDs []uuid.UUID
 }
 
 // UpdateThreadInput carries optional thread mutations. Pinning and locking
@@ -35,13 +36,14 @@ type UpdateThreadInput struct {
 
 // ThreadService contains business logic for threads.
 type ThreadService struct {
-	groups  *store.GroupStore
-	threads *store.ThreadStore
+	groups      *store.GroupStore
+	threads     *store.ThreadStore
+	attachments *store.AttachmentStore
 }
 
 // NewThreadService creates a ThreadService.
-func NewThreadService(groups *store.GroupStore, threads *store.ThreadStore) *ThreadService {
-	return &ThreadService{groups: groups, threads: threads}
+func NewThreadService(groups *store.GroupStore, threads *store.ThreadStore, attachments *store.AttachmentStore) *ThreadService {
+	return &ThreadService{groups: groups, threads: threads, attachments: attachments}
 }
 
 // ListByGroup returns threads of a group with pagination.
@@ -84,13 +86,30 @@ func (s *ThreadService) Create(ctx context.Context, in CreateThreadInput) (*mode
 	if err := validateBody(in.Body); err != nil {
 		return nil, err
 	}
+	if len(in.AttachmentIDs) > maxPostAttachments {
+		return nil, ErrInvalidInput
+	}
 
-	th, err := s.threads.Create(ctx,
+	th, firstPostID, err := s.threads.Create(ctx,
 		models.NewThread{GroupID: in.GroupID, AuthorID: in.AuthorID, Title: in.Title},
 		models.NewPost{AuthorID: in.AuthorID, Body: in.Body})
 	if err != nil {
 		return nil, err
 	}
+
+	if len(in.AttachmentIDs) > 0 {
+		linked, err := s.attachments.LinkToPost(ctx, firstPostID, in.AuthorID, in.AttachmentIDs)
+		if err != nil {
+			return nil, err
+		}
+		if linked != int64(len(in.AttachmentIDs)) {
+			// roll back the just-created thread so a failed link does not
+			// leave an empty thread behind
+			_ = s.threads.Delete(ctx, th.ID)
+			return nil, ErrForbidden
+		}
+	}
+
 	return s.threads.SummaryByID(ctx, th.ID)
 }
 

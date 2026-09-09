@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/masoniclounge/masoniccore/internal/auth"
 	"github.com/masoniclounge/masoniccore/internal/config"
 	"github.com/masoniclounge/masoniccore/internal/models"
@@ -168,8 +169,9 @@ func TestCoreCRUD(t *testing.T) {
 	}
 
 	groupSvc := services.NewGroupService(store.NewGroupStore(pool), store.NewThreadStore(pool))
-	threadSvc := services.NewThreadService(store.NewGroupStore(pool), store.NewThreadStore(pool))
-	postSvc := services.NewPostService(store.NewPostStore(pool), store.NewThreadStore(pool))
+	attachmentStore := store.NewAttachmentStore(pool)
+	threadSvc := services.NewThreadService(store.NewGroupStore(pool), store.NewThreadStore(pool), attachmentStore)
+	postSvc := services.NewPostService(store.NewPostStore(pool), store.NewThreadStore(pool), attachmentStore)
 
 	// group validation
 	if _, err := groupSvc.Create(ctx, services.GroupInput{Name: "A", Slug: "BAD_SLUG", Description: "d"}); !errors.Is(err, services.ErrInvalidInput) {
@@ -184,14 +186,54 @@ func TestCoreCRUD(t *testing.T) {
 		t.Fatalf("duplicate slug error = %v, want ErrConflict", err)
 	}
 
+	// an attachment owned by a third user cannot be linked to the first post
+	hacker := createUser(t, pool, "hacker", "hacker@e.com")
+	foreign, err := attachmentStore.Create(ctx, models.NewAttachment{
+		OwnerID:     hacker.ID,
+		Filename:    "foreign.png",
+		ContentType: "image/png",
+		SizeBytes:   512,
+		StorageKey:  "posts/foreign.png",
+		PublicURL:   "/media/posts/foreign.png",
+	})
+	if err != nil {
+		t.Fatalf("Create foreign attachment: %v", err)
+	}
+	if _, err := threadSvc.Create(ctx, services.CreateThreadInput{
+		GroupID: g.ID, AuthorID: admin.ID, Title: "Welcome", Body: "First post",
+		AttachmentIDs: []uuid.UUID{foreign.ID},
+	}); !errors.Is(err, services.ErrForbidden) {
+		t.Fatalf("thread with foreign attachment error = %v, want ErrForbidden", err)
+	}
+
+	// thread creation with an owned attachment links it to the first post
+	cover, err := attachmentStore.Create(ctx, models.NewAttachment{
+		OwnerID:     admin.ID,
+		Filename:    "cover.png",
+		ContentType: "image/png",
+		SizeBytes:   1024,
+		StorageKey:  "posts/cover.png",
+		PublicURL:   "/media/posts/cover.png",
+	})
+	if err != nil {
+		t.Fatalf("Create thread attachment: %v", err)
+	}
 	th, err := threadSvc.Create(ctx, services.CreateThreadInput{
 		GroupID: g.ID, AuthorID: admin.ID, Title: "Welcome", Body: "First post",
+		AttachmentIDs: []uuid.UUID{cover.ID},
 	})
 	if err != nil {
 		t.Fatalf("Create thread: %v", err)
 	}
 	if th.PostCount != 1 {
 		t.Fatalf("thread post_count = %d, want 1", th.PostCount)
+	}
+	firstPosts, _, err := store.NewPostStore(pool).ListByThread(ctx, th.ID, 50, 0)
+	if err != nil {
+		t.Fatalf("ListByThread: %v", err)
+	}
+	if len(firstPosts) != 1 || len(firstPosts[0].Attachments) != 1 || firstPosts[0].Attachments[0].ID != cover.ID {
+		t.Fatalf("first post attachments = %+v, want the linked cover.png", firstPosts[0].Attachments)
 	}
 	got, err := threadSvc.Get(ctx, th.ID)
 	if err != nil {
@@ -209,7 +251,7 @@ func TestCoreCRUD(t *testing.T) {
 	}
 
 	// reply
-	reply, err := postSvc.Create(ctx, th.ID, admin.ID, "A reply")
+	reply, err := postSvc.Create(ctx, th.ID, admin.ID, "A reply", nil)
 	if err != nil {
 		t.Fatalf("reply: %v", err)
 	}
@@ -219,6 +261,43 @@ func TestCoreCRUD(t *testing.T) {
 	}
 	if summary.PostCount != 2 {
 		t.Fatalf("post_count = %d, want 2", summary.PostCount)
+	}
+
+	// attach a file (created via the store, S3-independent) to a new reply
+	att, err := attachmentStore.Create(ctx, models.NewAttachment{
+		OwnerID: admin.ID, Filename: "pic.png", ContentType: "image/png",
+		SizeBytes: 1024, StorageKey: "posts/pic.png", PublicURL: "/media/posts/pic.png",
+	})
+	if err != nil {
+		t.Fatalf("create attachment: %v", err)
+	}
+	withAtt, err := postSvc.Create(ctx, th.ID, admin.ID, "Reply with file", []uuid.UUID{att.ID})
+	if err != nil {
+		t.Fatalf("reply with attachment: %v", err)
+	}
+	if len(withAtt.Attachments) != 1 || withAtt.Attachments[0].ID != att.ID || withAtt.Attachments[0].OwnerUsername != admin.Username {
+		t.Fatalf("reply attachments = %+v, want one owned by %s", withAtt.Attachments, admin.Username)
+	}
+
+	// linking a file owned by someone else is forbidden
+	other := createUser(t, pool, "raider", "raider@e.com")
+	foreign2, err := attachmentStore.Create(ctx, models.NewAttachment{
+		OwnerID: other.ID, Filename: "steal.png", ContentType: "image/png",
+		SizeBytes: 2048, StorageKey: "posts/steal.png", PublicURL: "/media/posts/steal.png",
+	})
+	if err != nil {
+		t.Fatalf("create foreign attachment: %v", err)
+	}
+	if _, err := postSvc.Create(ctx, th.ID, admin.ID, "Foreign file", []uuid.UUID{foreign2.ID}); !errors.Is(err, services.ErrForbidden) {
+		t.Fatalf("foreign attachment error = %v, want ErrForbidden", err)
+	}
+
+	summary, err = threadSvc.Get(ctx, th.ID)
+	if err != nil {
+		t.Fatalf("Get thread after attachment replies: %v", err)
+	}
+	if summary.PostCount != 3 {
+		t.Fatalf("post_count = %d, want 3 (foreign reply must not bump)", summary.PostCount)
 	}
 
 	// edit own post
@@ -235,7 +314,7 @@ func TestCoreCRUD(t *testing.T) {
 	if _, err := threadSvc.Update(ctx, th.ID, services.UpdateThreadInput{Locked: &locked}, admin.ID, []string{models.RoleAdmin, models.RoleMember}); err != nil {
 		t.Fatalf("lock thread: %v", err)
 	}
-	if _, err := postSvc.Create(ctx, th.ID, admin.ID, "Locked out"); !errors.Is(err, services.ErrThreadLocked) {
+	if _, err := postSvc.Create(ctx, th.ID, admin.ID, "Locked out", nil); !errors.Is(err, services.ErrThreadLocked) {
 		t.Fatalf("reply to locked thread error = %v, want ErrThreadLocked", err)
 	}
 

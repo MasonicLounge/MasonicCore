@@ -21,8 +21,9 @@ type Post struct {
 // PostSummary is a post joined with its author for API responses.
 type PostSummary struct {
 	Post
-	AuthorUsername string `json:"author_username"`
-	AuthorDisplay  string `json:"author_display_name"`
+	AuthorUsername string          `json:"author_username"`
+	AuthorDisplay  string          `json:"author_display_name"`
+	Attachments    []AttachmentWithOwner `json:"attachments"`
 }
 
 // NewPost carries the fields required to create a post.

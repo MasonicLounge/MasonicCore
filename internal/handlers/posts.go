@@ -17,7 +17,8 @@ func NewPosts(svc *services.PostService) *Posts {
 }
 
 type postRequest struct {
-	Body string `json:"body"`
+	Body          string   `json:"body"`
+	AttachmentIDs []string `json:"attachment_ids"`
 }
 
 // ListByThread lists posts of a thread in chronological order.
@@ -58,7 +59,12 @@ func (h *Posts) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_json", "Invalid request body")
 		return
 	}
-	p, err := h.svc.Create(r.Context(), threadID, user.ID, req.Body)
+	attachmentIDs, err := parseIDs(req.AttachmentIDs)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_id", "Invalid attachment id")
+		return
+	}
+	p, err := h.svc.Create(r.Context(), threadID, user.ID, req.Body, attachmentIDs)
 	if err != nil {
 		writeCoreError(w, err)
 		return

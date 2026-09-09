@@ -48,18 +48,30 @@ func (s *PostStore) ListByThread(ctx context.Context, threadID uuid.UUID, limit,
 	if err != nil {
 		return nil, 0, err
 	}
-	defer rows.Close()
 
 	items := make([]models.PostSummary, 0)
+	postIDs := make([]uuid.UUID, 0)
 	for rows.Next() {
 		ps, err := scanPostSummary(rows)
 		if err != nil {
+			rows.Close()
 			return nil, 0, err
 		}
 		items = append(items, *ps)
+		postIDs = append(postIDs, ps.ID)
 	}
 	if err := rows.Err(); err != nil {
+		rows.Close()
 		return nil, 0, err
+	}
+	rows.Close()
+
+	attachments, err := s.attachmentsByPostIDs(ctx, postIDs)
+	if err != nil {
+		return nil, 0, err
+	}
+	for i := range items {
+		items[i].Attachments = attachments[items[i].ID]
 	}
 
 	var total int
@@ -78,7 +90,51 @@ func (s *PostStore) GetByID(ctx context.Context, id uuid.UUID) (*models.Post, er
 // SummaryByID returns a post joined with its author.
 func (s *PostStore) SummaryByID(ctx context.Context, id uuid.UUID) (*models.PostSummary, error) {
 	row := s.db.QueryRow(ctx, postSummarySelect+` WHERE p.id = $1`, id)
-	return scanPostSummary(row)
+	ps, err := scanPostSummary(row)
+	if err != nil {
+		return nil, err
+	}
+	attachments, err := s.attachmentsByPostIDs(ctx, []uuid.UUID{id})
+	if err != nil {
+		return nil, err
+	}
+	ps.Attachments = attachments[id]
+	return ps, nil
+}
+
+// attachmentsByPostIDs loads attachments for the given posts, grouped by post id.
+func (s *PostStore) attachmentsByPostIDs(ctx context.Context, postIDs []uuid.UUID) (map[uuid.UUID][]models.AttachmentWithOwner, error) {
+	out := map[uuid.UUID][]models.AttachmentWithOwner{}
+	if len(postIDs) == 0 {
+		return out, nil
+	}
+	rows, err := s.db.Query(ctx, `
+		SELECT a.id, a.owner_id, a.post_id, a.filename, a.content_type, a.size_bytes,
+		       a.storage_key, a.public_url, a.created_at, a.updated_at, u.username
+		FROM attachments a
+		JOIN users u ON u.id = a.owner_id
+		WHERE a.post_id = ANY($1)
+		ORDER BY a.created_at ASC, a.id`,
+		postIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var a models.AttachmentWithOwner
+		if err := rows.Scan(
+			&a.ID, &a.OwnerID, &a.PostID, &a.Filename, &a.ContentType,
+			&a.SizeBytes, &a.StorageKey, &a.PublicURL, &a.CreatedAt, &a.UpdatedAt,
+			&a.OwnerUsername,
+		); err != nil {
+			return nil, err
+		}
+		if a.PostID != nil {
+			out[*a.PostID] = append(out[*a.PostID], a)
+		}
+	}
+	return out, rows.Err()
 }
 
 // UpdateBody replaces the body of a post and records the editor.

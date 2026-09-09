@@ -17,8 +17,9 @@ func NewThreads(svc *services.ThreadService) *Threads {
 }
 
 type createThreadRequest struct {
-	Title string `json:"title"`
-	Body  string `json:"body"`
+	Title         string   `json:"title"`
+	Body          string   `json:"body"`
+	AttachmentIDs []string `json:"attachment_ids"`
 }
 
 type updateThreadRequest struct {
@@ -65,11 +66,17 @@ func (h *Threads) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_json", "Invalid request body")
 		return
 	}
+	attachmentIDs, err := parseIDs(req.AttachmentIDs)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_id", "Invalid attachment id")
+		return
+	}
 	th, err := h.svc.Create(r.Context(), services.CreateThreadInput{
-		GroupID:  groupID,
-		AuthorID: user.ID,
-		Title:    req.Title,
-		Body:     req.Body,
+		GroupID:       groupID,
+		AuthorID:      user.ID,
+		Title:         req.Title,
+		Body:          req.Body,
+		AttachmentIDs: attachmentIDs,
 	})
 	if err != nil {
 		writeCoreError(w, err)
