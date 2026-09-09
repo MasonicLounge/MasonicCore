@@ -39,8 +39,6 @@ func NewRouter(deps Dependencies) (http.Handler, error) {
 	threadsStore := store.NewThreadStore(deps.Database.Pool())
 	postsStore := store.NewPostStore(deps.Database.Pool())
 	groupSvc := services.NewGroupService(groupsStore, threadsStore)
-	threadSvc := services.NewThreadService(groupsStore, threadsStore)
-	postSvc := services.NewPostService(postsStore, threadsStore)
 
 	s3, err := storage.New(context.Background(), deps.Config)
 	if err != nil {
@@ -49,10 +47,13 @@ func NewRouter(deps Dependencies) (http.Handler, error) {
 	attachmentsStore := store.NewAttachmentStore(deps.Database.Pool())
 	mediaSvc := services.NewMediaService(attachmentsStore, users, postsStore, s3, deps.Config)
 	media := handlers.NewMedia(mediaSvc, s3)
+	postSvc := services.NewPostService(postsStore, threadsStore, attachmentsStore)
+	threadSvc := services.NewThreadService(groupsStore, threadsStore, attachmentsStore)
 
 	settingsStore := store.NewSettingsStore(deps.Database.Pool())
 	adminSvc := services.NewAdminService(users, attachmentsStore, settingsStore)
 	admin := handlers.NewAdmin(adminSvc)
+	publicSettings := handlers.NewPublicSettings(settingsStore)
 
 	installSvc := services.NewInstallService(users, settingsStore, hasher)
 	install := handlers.NewInstall(installSvc)
@@ -89,6 +90,7 @@ func NewRouter(deps Dependencies) (http.Handler, error) {
 
 		r.Get("/install", install.GetStatus)
 		r.Post("/install", install.Create)
+		r.Get("/settings", publicSettings.Get)
 
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/register", auth.Register)

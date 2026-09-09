@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added / Добавлено
+
+- Attachments on posts: post summaries now include an `attachments` array (with owner username); `POST /api/v1/threads/{id}/posts` accepts `attachment_ids` (up to 10, ownership-verified — foreign ids rejected with 403); creating a thread (`POST /api/v1/groups/{id}/threads`) accepts the same `attachment_ids` for its first post.
+- Вложения к постам: сводка поста теперь содержит массив `attachments` (с именем владельца); `POST /api/v1/threads/{id}/posts` принимает `attachment_ids` (до 10, с проверкой владения — чужие идентификаторы отклоняются с 403); создание темы (`POST /api/v1/groups/{id}/threads`) также принимает `attachment_ids` для первого поста.
+
+- Public forum settings: `GET /api/v1/settings` returns `forum_name` for anonymous visitors (used by the frontend for the brand name and document title).
+- Публичные настройки форума: `GET /api/v1/settings` возвращает `forum_name` для анонимных посетителей (используется фронтендом для названия в шапке и заголовке вкладки).
+
 ## [0.1.0] - 2026-09-09
 
 ### Added / Добавлено

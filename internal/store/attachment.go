@@ -84,6 +84,56 @@ func (s *AttachmentStore) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+// ListByPostIDs returns attachments grouped by their post, ordered by creation time.
+func (s *AttachmentStore) ListByPostIDs(ctx context.Context, postIDs []uuid.UUID) (map[uuid.UUID][]models.AttachmentWithOwner, error) {
+	out := map[uuid.UUID][]models.AttachmentWithOwner{}
+	if len(postIDs) == 0 {
+		return out, nil
+	}
+	rows, err := s.db.Query(ctx, `
+		SELECT a.id, a.owner_id, a.post_id, a.filename, a.content_type, a.size_bytes,
+		       a.storage_key, a.public_url, a.created_at, a.updated_at, u.username
+		FROM attachments a
+		JOIN users u ON u.id = a.owner_id
+		WHERE a.post_id = ANY($1)
+		ORDER BY a.created_at ASC, a.id`,
+		postIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		a := &models.AttachmentWithOwner{}
+		postID := uuid.UUID{}
+		if err := rows.Scan(
+			&a.ID, &a.OwnerID, &a.PostID, &a.Filename, &a.ContentType,
+			&a.SizeBytes, &a.StorageKey, &a.PublicURL, &a.CreatedAt, &a.UpdatedAt,
+			&a.OwnerUsername,
+		); err != nil {
+			return nil, err
+		}
+		if a.PostID != nil {
+			postID = *a.PostID
+		}
+		out[postID] = append(out[postID], *a)
+	}
+	return out, rows.Err()
+}
+
+// LinkToPost binds owned unattached attachments to a post. Returns the number
+// of linked rows; ids that were not owned or already linked are skipped.
+func (s *AttachmentStore) LinkToPost(ctx context.Context, postID uuid.UUID, ownerID uuid.UUID, ids []uuid.UUID) (int64, error) {
+	tag, err := s.db.Exec(ctx,
+		`UPDATE attachments SET post_id = $1, updated_at = now()
+		 WHERE id = ANY($2) AND owner_id = $3 AND post_id IS NULL`,
+		postID, ids, ownerID)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
 func scanAttachment(row pgx.Row) (*models.Attachment, error) {
 	var a models.Attachment
 	err := row.Scan(&a.ID, &a.OwnerID, &a.PostID, &a.Filename, &a.ContentType,

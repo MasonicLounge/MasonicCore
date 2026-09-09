@@ -30,11 +30,12 @@ func NewThreadStore(db Pool) *ThreadStore {
 }
 
 // Create inserts a new thread. The first post is created in the same transaction,
-// so the thread always starts with exactly one post.
-func (s *ThreadStore) Create(ctx context.Context, t models.NewThread, first models.NewPost) (*models.Thread, error) {
+// so the thread always starts with exactly one post. The ID of the first post is
+// returned so callers can attach files to it.
+func (s *ThreadStore) Create(ctx context.Context, t models.NewThread, first models.NewPost) (*models.Thread, uuid.UUID, error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
-		return nil, err
+		return nil, uuid.Nil, err
 	}
 	defer tx.Rollback(ctx)
 
@@ -45,31 +46,34 @@ func (s *ThreadStore) Create(ctx context.Context, t models.NewThread, first mode
 		t.GroupID, t.AuthorID, t.Title)
 	th, err := scanThread(row)
 	if err != nil {
-		return nil, err
+		return nil, uuid.Nil, err
 	}
 
 	first.ThreadID = th.ID
 	row = tx.QueryRow(ctx,
 		`INSERT INTO posts (thread_id, author_id, body)
 		 VALUES ($1, $2, $3)
-		 RETURNING created_at`,
+		 RETURNING id, created_at`,
 		th.ID, first.AuthorID, first.Body)
-	var postCreatedAt time.Time
-	if err := row.Scan(&postCreatedAt); err != nil {
-		return nil, err
+	var (
+		firstPostID   uuid.UUID
+		postCreatedAt time.Time
+	)
+	if err := row.Scan(&firstPostID, &postCreatedAt); err != nil {
+		return nil, uuid.Nil, err
 	}
 	if _, err := tx.Exec(ctx,
 		`UPDATE threads SET post_count = post_count + 1, last_post_at = $2, updated_at = now() WHERE id = $1`,
 		th.ID, postCreatedAt); err != nil {
-		return nil, err
+		return nil, uuid.Nil, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return nil, err
+		return nil, uuid.Nil, err
 	}
 	th.PostCount = 1
 	th.LastPostAt = &postCreatedAt
-	return th, nil
+	return th, firstPostID, nil
 }
 
 // ListByGroup returns thread summaries in a group ordered by pinned then most recent activity.

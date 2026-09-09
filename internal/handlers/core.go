@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -25,6 +26,24 @@ func authUser(r *http.Request) *auth.UserInfo {
 func pathID(r *http.Request, key string) (uuid.UUID, bool) {
 	id, err := uuid.Parse(chi.URLParam(r, key))
 	return id, err == nil
+}
+
+// parseIDs converts a slice of UUID strings into uuid values, skipping blanks.
+// Returns an error if any non-blank entry is not a valid UUID.
+func parseIDs(raw []string) ([]uuid.UUID, error) {
+	ids := make([]uuid.UUID, 0, len(raw))
+	for _, s := range raw {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		id, err := uuid.Parse(s)
+		if err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
 }
 
 // pagination parses limit/offset query parameters with sensible bounds.
