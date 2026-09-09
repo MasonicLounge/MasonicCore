@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 )
 
@@ -19,4 +20,10 @@ func writeError(w http.ResponseWriter, status int, code, message string) {
 		"code":    code,
 		"message": message,
 	})
+}
+
+// writeServerError logs the unexpected error and responds with a generic 500.
+func writeServerError(w http.ResponseWriter, err error) {
+	slog.Error("internal server error", "err", err)
+	writeError(w, http.StatusInternalServerError, "internal_error", "an unexpected error occurred")
 }

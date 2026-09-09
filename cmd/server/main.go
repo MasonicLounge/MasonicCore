@@ -23,8 +23,8 @@ func main() {
 	slog.SetDefault(logger)
 
 	cfg := config.Load()
-	if cfg.DatabaseURL == "" {
-		logger.Error("DATABASE_URL is required")
+	if err := cfg.Validate(); err != nil {
+		logger.Error("invalid configuration", "err", err)
 		os.Exit(1)
 	}
 
@@ -43,9 +43,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	router, err := httpapi.NewRouter(httpapi.Dependencies{
+		Database: database,
+		Version:  version,
+		Config:   cfg,
+	})
+	if err != nil {
+		logger.Error("build router", "err", err)
+		os.Exit(1)
+	}
+
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           httpapi.NewRouter(database, version, logger),
+		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
