@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added / Добавлено
 
+- Container image: multi-stage `Dockerfile` (Go 1.27 builder → minimal Alpine runtime with `ca-certificates` and non-root user).
+- Образ контейнера: multi-stage `Dockerfile` (сборка Go 1.27 → минимальный рантайм Alpine с `ca-certificates` и непривилегированным пользователем).
+
 - Admin API: `GET /api/v1/admin/users` (paginated users with roles), `PATCH /api/v1/admin/users/{id}` (replace roles / change status), `GET/PUT /api/v1/admin/settings` (forum name), `GET /api/v1/admin/media` (paginated attachments with owner usernames). All endpoints require the `admin` role.
 - Admin API: `GET /api/v1/admin/users` (список пользователей с ролями с пагинацией), `PATCH /api/v1/admin/users/{id}` (замена ролей / смена статуса), `GET/PUT /api/v1/admin/settings` (имя форума), `GET /api/v1/admin/media` (список вложений с именами владельцев с пагинацией). Все эндпоинты требуют роль `admin`.
 
