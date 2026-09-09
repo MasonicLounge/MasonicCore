@@ -57,6 +57,10 @@ func writeCoreError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusNotFound, "thread_not_found", "Thread not found")
 	case errors.Is(err, services.ErrPostNotFound):
 		writeError(w, http.StatusNotFound, "post_not_found", "Post not found")
+	case errors.Is(err, services.ErrNotFound):
+		writeError(w, http.StatusNotFound, "not_found", "Resource not found")
+	case errors.Is(err, services.ErrUserNotFound):
+		writeError(w, http.StatusNotFound, "user_not_found", "User not found")
 	case errors.Is(err, services.ErrAttachmentNotFound):
 		writeError(w, http.StatusNotFound, "attachment_not_found", "Attachment not found")
 	case errors.Is(err, services.ErrFileTooLarge):

@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added / Добавлено
 
+- Realtime WebSocket gateway at `/ws` (JWT via `access_token` query parameter for browser sockets): per-user event fan-out, presence broadcast (`join`/`leave`), hub with connection registry and per-connection send buffer. Built on `gorilla/websocket`.
+- Realtime WebSocket-шлюз на `/ws` (JWT через query-параметр `access_token` для браузерных сокетов): раздача событий по пользователям, трансляция presence (`join`/`leave`), hub с реестром подключений и буфером отправки на соединение. Реализовано на `gorilla/websocket`.
+
+- Private messaging: send (`POST /api/v1/pms`, validates recipient, live push to recipient socket), conversation (`GET /api/v1/pms/with?with={userID}`), inbox (`GET /api/v1/pms`, one latest message per conversation), mark read (`PATCH /api/v1/pms/{id}/read`), unread counters (`GET /api/v1/pms/unread-count`).
+- Приватные сообщения: отправка (`POST /api/v1/pms`, проверка получателя, live-доставка в сокет получателя), переписка (`GET /api/v1/pms/with?with={userID}`), inbox (`GET /api/v1/pms`, последнее сообщение по каждому диалогу), отметка прочитанным (`PATCH /api/v1/pms/{id}/read`), счётчики непрочитанного (`GET /api/v1/pms/unread-count`).
+
+- Notifications: list (`GET /api/v1/notifications`), mark one read (`PATCH /api/v1/notifications/{id}/read`), mark all read (`PATCH /api/v1/notifications/read-all`); new PMs create a notification row and push a live `notification` event.
+- Уведомления: список (`GET /api/v1/notifications`), отметка одного (`PATCH /api/v1/notifications/{id}/read`), отметка всех (`PATCH /api/v1/notifications/read-all`); новые PM создают запись уведомления и отправляют live-событие `notification`.
+
+- Presence: online list (`GET /api/v1/presence`) and per-user lookup (`GET /api/v1/presence/{userID}`); hub tracks online users and broadcasts join/leave.
+- Presence: список онлайн-пользователей (`GET /api/v1/presence`) и проверка конкретного (`GET /api/v1/presence/{userID}`); hub отслеживает онлайн-участников и транслирует join/leave.
+
+- Migration `00005`: `private_messages` (sender/recipient, `read_at`, indexes on recipient and sender) and `notifications` (per-user, type, JSONB payload, read marker) tables.
+- Миграция `00005`: таблицы `private_messages` (отправитель/получатель, `read_at`, индексы по получателю и отправителю) и `notifications` (по пользователям, тип, JSONB-нагрузка, отметка прочитанности).
+
 - Media storage via S3 (MinIO): avatar upload (`POST /api/v1/media/avatar`, 2 MiB cap, `image/*` only), post attachments (`POST /api/v1/media/attachments`, 20 MiB cap, optional `post_id`), attachment deletion (`DELETE /api/v1/media/attachments/{id}`, owner or moderator), public media serving at `/media/{bucket}/...` with long-lived cache headers. Built on `minio-go`, bucket auto-created on startup.
 - Хранилище медиа на S3 (MinIO): загрузка аватара (`POST /api/v1/media/avatar`, до 2 МиБ, только `image/*`), вложения к постам (`POST /api/v1/media/attachments`, до 20 МиБ, опциональный `post_id`), удаление вложения (`DELETE /api/v1/media/attachments/{id}`, владелец или модератор), публичная раздача медиа по `/media/{bucket}/...` с долгим кэшированием. Реализовано на `minio-go`, бакет создаётся автоматически при старте.
 
