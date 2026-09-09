@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added / Добавлено
 
+- CI workflow (GitHub Actions): `go vet` + `go test` on every push/PR; publishes the container image to `ghcr.io/masoniclounge/masoniccore:<version>` on release tags `vX.Y.Z`.
+- CI workflow (GitHub Actions): `go vet` + `go test` на каждый push/PR; публикация образа контейнера в `ghcr.io/masoniclounge/masoniccore:<version>` по релизным тегам `vX.Y.Z`.
+
 - Container image: multi-stage `Dockerfile` (Go 1.27 builder → minimal Alpine runtime with `ca-certificates` and non-root user).
 - Образ контейнера: multi-stage `Dockerfile` (сборка Go 1.27 → минимальный рантайм Alpine с `ca-certificates` и непривилегированным пользователем).
 
