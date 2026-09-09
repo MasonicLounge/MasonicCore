@@ -1,0 +1,23 @@
+# Normalize line endings: store LF in the repository.
+* text=auto
+
+# Keep LF on checkout for code, config and docs (no CRLF conversion, no warnings).
+*.go    text eol=lf
+*.mod   text eol=lf
+*.sum   text eol=lf
+*.sql   text eol=lf
+*.md    text eol=lf
+*.json  text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.sh    text eol=lf
+Makefile text eol=lf
+Dockerfile text eol=lf
+
+# Binary files must not be touched.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary

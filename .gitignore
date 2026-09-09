@@ -1,0 +1,16 @@
+# Binaries
+/bin/
+*.exe
+
+# Environment
+.env
+.env.local
+
+# Test artifacts
+coverage.out
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
