@@ -30,3 +30,9 @@ type NewAttachment struct {
 	StorageKey  string
 	PublicURL   string
 }
+
+// AttachmentWithOwner embeds Attachment and adds the owner's username.
+type AttachmentWithOwner struct {
+	Attachment
+	OwnerUsername string `json:"owner_username"`
+}

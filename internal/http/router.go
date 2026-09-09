@@ -51,6 +51,9 @@ func NewRouter(deps Dependencies) (http.Handler, error) {
 	media := handlers.NewMedia(mediaSvc, s3)
 
 	settingsStore := store.NewSettingsStore(deps.Database.Pool())
+	adminSvc := services.NewAdminService(users, attachmentsStore, settingsStore)
+	admin := handlers.NewAdmin(adminSvc)
+
 	installSvc := services.NewInstallService(users, settingsStore, hasher)
 	install := handlers.NewInstall(installSvc)
 
@@ -153,6 +156,18 @@ func NewRouter(deps Dependencies) (http.Handler, error) {
 				r.Post("/avatar", media.UploadAvatar)
 				r.Post("/attachments", media.UploadAttachment)
 				r.Delete("/attachments/{attachmentID}", media.DeleteAttachment)
+			})
+		})
+
+		r.Route("/admin", func(r chi.Router) {
+			r.Group(func(r chi.Router) {
+				r.Use(handlers.RequireAuth(jwtm))
+				r.Use(handlers.RequireRole(models.RoleAdmin))
+				r.Get("/users", admin.ListUsers)
+				r.Patch("/users/{userID}", admin.UpdateUser)
+				r.Get("/settings", admin.GetSettings)
+				r.Put("/settings", admin.UpdateSettings)
+				r.Get("/media", admin.ListMedia)
 			})
 		})
 
