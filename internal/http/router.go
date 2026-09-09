@@ -16,6 +16,7 @@ import (
 	"github.com/masoniclounge/masoniccore/internal/services"
 	"github.com/masoniclounge/masoniccore/internal/storage"
 	"github.com/masoniclounge/masoniccore/internal/store"
+	"github.com/masoniclounge/masoniccore/internal/ws"
 )
 
 // Dependencies carries the services the router wires together.
@@ -55,6 +56,14 @@ func NewRouter(deps Dependencies) (http.Handler, error) {
 	groups := handlers.NewGroups(groupSvc)
 	threads := handlers.NewThreads(threadSvc)
 	posts := handlers.NewPosts(postSvc)
+
+	hub := ws.NewHub()
+	go hub.Run(context.Background())
+	messagesStore := store.NewMessageStore(deps.Database.Pool())
+	notificationsStore := store.NewNotificationStore(deps.Database.Pool())
+	messageSvc := services.NewMessageService(messagesStore, users)
+	notificationSvc := services.NewNotificationService(notificationsStore)
+	messages := handlers.NewMessages(messageSvc, notificationSvc, hub)
 
 	r := chi.NewRouter()
 
@@ -139,9 +148,35 @@ func NewRouter(deps Dependencies) (http.Handler, error) {
 				r.Delete("/attachments/{attachmentID}", media.DeleteAttachment)
 			})
 		})
+
+		r.Route("/pms", func(r chi.Router) {
+			r.Group(func(r chi.Router) {
+				r.Use(handlers.RequireAuth(jwtm))
+				r.Get("/", messages.Inbox)
+				r.Get("/with", messages.Conversation)
+				r.Post("/", messages.Send)
+				r.Get("/unread-count", messages.UnreadCount)
+				r.Patch("/{messageID}/read", messages.MarkRead)
+			})
+		})
+
+		r.Route("/notifications", func(r chi.Router) {
+			r.Group(func(r chi.Router) {
+				r.Use(handlers.RequireAuth(jwtm))
+				r.Get("/", messages.Notifications)
+				r.Patch("/{notificationID}/read", messages.MarkNotificationRead)
+				r.Patch("/read-all", messages.MarkAllNotificationsRead)
+			})
+		})
+
+		r.Route("/presence", func(r chi.Router) {
+			r.Get("/", messages.Online)
+			r.Get("/{userID}", messages.Presence)
+		})
 	})
 
 	r.Get("/media/{bucket}/*", media.Serve)
+	r.Get("/ws", handlers.WS(hub, jwtm))
 
 	return r, nil
 }

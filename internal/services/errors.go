@@ -4,6 +4,7 @@ import "errors"
 
 // Sentinel errors for the core (groups/threads/posts) domain.
 var (
+	ErrNotFound           = errors.New("not found")
 	ErrGroupNotFound      = errors.New("group not found")
 	ErrThreadNotFound     = errors.New("thread not found")
 	ErrPostNotFound       = errors.New("post not found")
