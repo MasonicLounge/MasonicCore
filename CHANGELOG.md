@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added / Добавлено
 
+- Bilingual README (`README.md`) describing the module: responsibility, implemented features, tech stack, repository layout, development, tests and license; dynamic shields.io badges (CI, commit activity, contributors, last commit).
+- Двуязычное README (`README.md`): назначение модуля, реализованные возможности, стек, структура репозитория, разработка, тесты и лицензия; динамические бейджи shields.io (CI, активность коммитов, контрибуторы, последний коммит).
+
 - Integration test suite (`internal/integration`) covering install flow, auth, core CRUD (groups/threads/posts) and admin services against a real PostgreSQL via `TEST_DATABASE_URL`; CI runs it against a `postgres:16` service container.
 - Интеграционные тесты (`internal/integration`): мастер установки, авторизация, базовый CRUD (группы/темы/посты) и сервисы админки против реального PostgreSQL через `TEST_DATABASE_URL`; CI запускает их против сервисного контейнера `postgres:16`.
 
