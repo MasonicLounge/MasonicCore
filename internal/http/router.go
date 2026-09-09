@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/masoniclounge/masoniccore/internal/handlers"
 	"github.com/masoniclounge/masoniccore/internal/models"
 	"github.com/masoniclounge/masoniccore/internal/services"
+	"github.com/masoniclounge/masoniccore/internal/storage"
 	"github.com/masoniclounge/masoniccore/internal/store"
 )
 
@@ -38,6 +40,14 @@ func NewRouter(deps Dependencies) (http.Handler, error) {
 	groupSvc := services.NewGroupService(groupsStore, threadsStore)
 	threadSvc := services.NewThreadService(groupsStore, threadsStore)
 	postSvc := services.NewPostService(postsStore, threadsStore)
+
+	s3, err := storage.New(context.Background(), deps.Config)
+	if err != nil {
+		return nil, err
+	}
+	attachmentsStore := store.NewAttachmentStore(deps.Database.Pool())
+	mediaSvc := services.NewMediaService(attachmentsStore, users, postsStore, s3, deps.Config)
+	media := handlers.NewMedia(mediaSvc, s3)
 
 	health := handlers.NewHealth(deps.Database)
 	versionHandler := handlers.NewVersion(deps.Database, deps.Version)
@@ -120,7 +130,18 @@ func NewRouter(deps Dependencies) (http.Handler, error) {
 				r.Delete("/{postID}", posts.Delete)
 			})
 		})
+
+		r.Route("/media", func(r chi.Router) {
+			r.Group(func(r chi.Router) {
+				r.Use(handlers.RequireAuth(jwtm))
+				r.Post("/avatar", media.UploadAvatar)
+				r.Post("/attachments", media.UploadAttachment)
+				r.Delete("/attachments/{attachmentID}", media.DeleteAttachment)
+			})
+		})
 	})
+
+	r.Get("/media/{bucket}/*", media.Serve)
 
 	return r, nil
 }

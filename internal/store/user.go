@@ -120,6 +120,15 @@ func (s *UserStore) AddMemberRole(ctx context.Context, userID uuid.UUID) error {
 	return nil
 }
 
+// UpdateAvatar sets the avatar URL of a user and returns the updated row.
+func (s *UserStore) UpdateAvatar(ctx context.Context, userID uuid.UUID, avatarURL string) (*models.User, error) {
+	row := s.db.QueryRow(ctx, `
+		UPDATE users SET avatar_url = $2, updated_at = now()
+		WHERE id = $1
+		RETURNING `+userColumns, userID, avatarURL)
+	return s.scanOne(row)
+}
+
 func (s *UserStore) scanOne(row pgx.Row) (*models.User, error) {
 	u := &models.User{}
 	err := row.Scan(
