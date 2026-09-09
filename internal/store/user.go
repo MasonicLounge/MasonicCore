@@ -110,12 +110,17 @@ func (s *UserStore) RolesForUser(ctx context.Context, userID uuid.UUID) ([]strin
 
 // AddMemberRole assigns the default member role to a user.
 func (s *UserStore) AddMemberRole(ctx context.Context, userID uuid.UUID) error {
+	return s.AssignRole(ctx, userID, models.RoleMember)
+}
+
+// AssignRole assigns a role to a user by its key.
+func (s *UserStore) AssignRole(ctx context.Context, userID uuid.UUID, roleKey string) error {
 	_, err := s.db.Exec(ctx, `
 		INSERT INTO user_roles (user_id, role_id)
 		SELECT $1, id FROM roles WHERE key = $2`,
-		userID, models.RoleMember)
+		userID, roleKey)
 	if err != nil {
-		return fmt.Errorf("assign member role: %w", err)
+		return fmt.Errorf("assign role %s: %w", roleKey, err)
 	}
 	return nil
 }
