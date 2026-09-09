@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added / Добавлено
 
+- Install wizard: `GET /api/v1/install` returns setup status (`installed`, `forum_name`); `POST /api/v1/install` runs first-time setup — creates the admin user (member + admin roles) and writes `system.installed`/`forum.name` settings. Guarded: a second POST returns `409 already_installed`.
+- Мастер установки: `GET /api/v1/install` возвращает статус настройки (`installed`, `forum_name`); `POST /api/v1/install` выполняет первичную настройку — создаёт пользователя-админа (роли member + admin) и записывает настройки `system.installed`/`forum.name`. Защита: повторный POST вернёт `409 already_installed`.
+
 - Realtime WebSocket gateway at `/ws` (JWT via `access_token` query parameter for browser sockets): per-user event fan-out, presence broadcast (`join`/`leave`), hub with connection registry and per-connection send buffer. Built on `gorilla/websocket`.
 - Realtime WebSocket-шлюз на `/ws` (JWT через query-параметр `access_token` для браузерных сокетов): раздача событий по пользователям, трансляция presence (`join`/`leave`), hub с реестром подключений и буфером отправки на соединение. Реализовано на `gorilla/websocket`.
 

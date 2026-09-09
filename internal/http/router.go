@@ -50,6 +50,10 @@ func NewRouter(deps Dependencies) (http.Handler, error) {
 	mediaSvc := services.NewMediaService(attachmentsStore, users, postsStore, s3, deps.Config)
 	media := handlers.NewMedia(mediaSvc, s3)
 
+	settingsStore := store.NewSettingsStore(deps.Database.Pool())
+	installSvc := services.NewInstallService(users, settingsStore, hasher)
+	install := handlers.NewInstall(installSvc)
+
 	health := handlers.NewHealth(deps.Database)
 	versionHandler := handlers.NewVersion(deps.Database, deps.Version)
 	auth := handlers.NewAuth(authSvc, deps.Config)
@@ -79,6 +83,9 @@ func NewRouter(deps Dependencies) (http.Handler, error) {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", health.Health)
 		r.Get("/version", versionHandler.Get)
+
+		r.Get("/install", install.GetStatus)
+		r.Post("/install", install.Create)
 
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/register", auth.Register)
