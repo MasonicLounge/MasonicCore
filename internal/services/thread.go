@@ -39,11 +39,12 @@ type ThreadService struct {
 	groups      *store.GroupStore
 	threads     *store.ThreadStore
 	attachments *store.AttachmentStore
+	moderation  *store.ModerationStore
 }
 
 // NewThreadService creates a ThreadService.
-func NewThreadService(groups *store.GroupStore, threads *store.ThreadStore, attachments *store.AttachmentStore) *ThreadService {
-	return &ThreadService{groups: groups, threads: threads, attachments: attachments}
+func NewThreadService(groups *store.GroupStore, threads *store.ThreadStore, attachments *store.AttachmentStore, moderation *store.ModerationStore) *ThreadService {
+	return &ThreadService{groups: groups, threads: threads, attachments: attachments, moderation: moderation}
 }
 
 // ListByGroup returns threads of a group with pagination.
@@ -128,6 +129,9 @@ func (s *ThreadService) Update(ctx context.Context, id uuid.UUID, in UpdateThrea
 		return nil, ErrForbidden
 	}
 
+	pinnedChanged := moderator && in.Pinned != nil && *in.Pinned != t.Pinned
+	lockedChanged := moderator && in.Locked != nil && *in.Locked != t.Locked
+
 	if in.Title != nil {
 		if t.AuthorID != callerID {
 			return nil, ErrForbidden
@@ -151,6 +155,32 @@ func (s *ThreadService) Update(ctx context.Context, id uuid.UUID, in UpdateThrea
 	if err != nil {
 		return nil, err
 	}
+
+	if pinnedChanged {
+		action := models.ModActionThreadPin
+		if !*in.Pinned {
+			action = models.ModActionThreadUnpin
+		}
+		if _, err := s.moderation.Create(ctx, models.ModerationEntry{
+			ModeratorID: callerID, Action: action,
+			TargetType: models.ModTargetThread, TargetID: id,
+		}); err != nil {
+			return nil, err
+		}
+	}
+	if lockedChanged {
+		action := models.ModActionThreadLock
+		if !*in.Locked {
+			action = models.ModActionThreadUnlock
+		}
+		if _, err := s.moderation.Create(ctx, models.ModerationEntry{
+			ModeratorID: callerID, Action: action,
+			TargetType: models.ModTargetThread, TargetID: id,
+		}); err != nil {
+			return nil, err
+		}
+	}
+
 	return s.threads.SummaryByID(ctx, updated.ID)
 }
 
@@ -171,6 +201,16 @@ func (s *ThreadService) Delete(ctx context.Context, id uuid.UUID, callerID uuid.
 			return ErrThreadNotFound
 		}
 		return err
+	}
+
+	// A moderator removing someone else's thread is a moderation action.
+	if t.AuthorID != callerID {
+		if _, err := s.moderation.Create(ctx, models.ModerationEntry{
+			ModeratorID: callerID, Action: models.ModActionThreadDelete,
+			TargetType: models.ModTargetThread, TargetID: id,
+		}); err != nil {
+			return err
+		}
 	}
 	return nil
 }

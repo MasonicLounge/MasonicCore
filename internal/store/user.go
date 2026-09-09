@@ -134,6 +134,24 @@ func (s *UserStore) UpdateAvatar(ctx context.Context, userID uuid.UUID, avatarUR
 	return s.scanOne(row)
 }
 
+// UpdateDisplayName sets the display name of a user and returns the updated row.
+func (s *UserStore) UpdateDisplayName(ctx context.Context, userID uuid.UUID, displayName string) (*models.User, error) {
+	row := s.db.QueryRow(ctx, `
+		UPDATE users SET display_name = $2, updated_at = now()
+		WHERE id = $1
+		RETURNING `+userColumns, userID, displayName)
+	return s.scanOne(row)
+}
+
+// UpdatePasswordHash sets the password hash of a user and returns the updated row.
+func (s *UserStore) UpdatePasswordHash(ctx context.Context, userID uuid.UUID, passwordHash string) (*models.User, error) {
+	row := s.db.QueryRow(ctx, `
+		UPDATE users SET password_hash = $2, updated_at = now()
+		WHERE id = $1
+		RETURNING `+userColumns, userID, passwordHash)
+	return s.scanOne(row)
+}
+
 // List returns a page of users ordered by creation time together with their roles.
 func (s *UserStore) List(ctx context.Context, limit, offset int) ([]*models.UserWithRoles, int64, error) {
 	var total int64

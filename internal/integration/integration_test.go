@@ -3,6 +3,7 @@ package integration_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -155,6 +156,42 @@ func TestAuthFlow(t *testing.T) {
 	if _, err := svc.Login(ctx, "alice", "password123", "a", "ip"); !errors.Is(err, services.ErrUserNotActive) {
 		t.Fatalf("banned login error = %v, want ErrUserNotActive", err)
 	}
+
+	// Profile update: display name is changed, reset to username on empty.
+	if _, err := users.UpdateStatus(ctx, u.ID, models.UserStatusActive); err != nil {
+		t.Fatalf("UpdateStatus active: %v", err)
+	}
+	updated, err := svc.UpdateProfile(ctx, u.ID, "Alice Sterling")
+	if err != nil {
+		t.Fatalf("UpdateProfile: %v", err)
+	}
+	if updated.DisplayName != "Alice Sterling" {
+		t.Fatalf("DisplayName = %q, want Alice Sterling", updated.DisplayName)
+	}
+	updated, err = svc.UpdateProfile(ctx, u.ID, "   ")
+	if err != nil {
+		t.Fatalf("UpdateProfile reset: %v", err)
+	}
+	if updated.DisplayName != "alice" {
+		t.Fatalf("DisplayName reset = %q, want alice", updated.DisplayName)
+	}
+	if _, err := svc.UpdateProfile(ctx, u.ID, strings.Repeat("x", 51)); !errors.Is(err, services.ErrValidation) {
+		t.Fatalf("long display name error = %v, want ErrValidation", err)
+	}
+
+	// Password change: wrong current password rejected; success revokes refresh sessions.
+	if err := svc.ChangePassword(ctx, u.ID, "wrong-current", "newpassword456"); !errors.Is(err, services.ErrWrongPassword) {
+		t.Fatalf("wrong current password error = %v, want ErrWrongPassword", err)
+	}
+	if err := svc.ChangePassword(ctx, u.ID, "password123", "newpassword456"); err != nil {
+		t.Fatalf("ChangePassword: %v", err)
+	}
+	if _, err := svc.Login(ctx, "alice", "password123", "ag", "ip"); !errors.Is(err, services.ErrInvalidCredentials) {
+		t.Fatalf("login with old password = %v, want ErrInvalidCredentials", err)
+	}
+	if _, err := svc.Login(ctx, "alice", "newpassword456", "ag", "ip"); err != nil {
+		t.Fatalf("login with new password: %v", err)
+	}
 }
 
 // TestCoreCRUD covers groups, threads and posts including moderations rules.
@@ -170,8 +207,9 @@ func TestCoreCRUD(t *testing.T) {
 
 	groupSvc := services.NewGroupService(store.NewGroupStore(pool), store.NewThreadStore(pool))
 	attachmentStore := store.NewAttachmentStore(pool)
-	threadSvc := services.NewThreadService(store.NewGroupStore(pool), store.NewThreadStore(pool), attachmentStore)
-	postSvc := services.NewPostService(store.NewPostStore(pool), store.NewThreadStore(pool), attachmentStore)
+	moderationStore := store.NewModerationStore(pool)
+	threadSvc := services.NewThreadService(store.NewGroupStore(pool), store.NewThreadStore(pool), attachmentStore, moderationStore)
+	postSvc := services.NewPostService(store.NewPostStore(pool), store.NewThreadStore(pool), attachmentStore, moderationStore)
 
 	// group validation
 	if _, err := groupSvc.Create(ctx, services.GroupInput{Name: "A", Slug: "BAD_SLUG", Description: "d"}); !errors.Is(err, services.ErrInvalidInput) {
@@ -328,6 +366,22 @@ func TestCoreCRUD(t *testing.T) {
 	if err := groupSvc.Delete(ctx, g.ID); err != nil {
 		t.Fatalf("delete empty group: %v", err)
 	}
+
+	// the moderation log captures moderator actions
+	actions, total, err := moderationStore.List(ctx, 50, 0)
+	if err != nil {
+		t.Fatalf("List moderation log: %v", err)
+	}
+	if int(total) != 2 {
+		t.Fatalf("moderation log total = %d, want 2 (thread_lock, thread_delete)", total)
+	}
+	wantActions := []string{models.ModActionThreadLock, models.ModActionThreadDelete}
+	if actions[0].Action != wantActions[0] || actions[1].Action != wantActions[1] {
+		t.Fatalf("moderation log actions = %v, want %v", actions, wantActions)
+	}
+	if actions[0].ModeratorID != admin.ID || actions[0].TargetID != th.ID {
+		t.Fatalf("moderation log thread_lock entry = %+v", actions[0])
+	}
 }
 
 // TestAdminService covers user management and forum settings updates.
@@ -343,7 +397,7 @@ func TestAdminService(t *testing.T) {
 	}
 	member := createUser(t, pool, "worker", "worker@e.com")
 
-	svc := services.NewAdminService(users, store.NewAttachmentStore(pool), store.NewSettingsStore(pool))
+	svc := services.NewAdminService(users, store.NewAttachmentStore(pool), store.NewSettingsStore(pool), store.NewModerationStore(pool))
 
 	items, total, err := svc.ListUsers(ctx, 50, 0)
 	if err != nil {

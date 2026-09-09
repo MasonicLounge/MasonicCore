@@ -20,16 +20,17 @@ var (
 )
 
 // AdminService provides administrator operations: user and role management,
-// forum settings and media administration.
+// forum settings, media administration and the moderation log.
 type AdminService struct {
 	users       *store.UserStore
 	attachments *store.AttachmentStore
 	settings    *store.SettingsStore
+	moderation  *store.ModerationStore
 }
 
 // NewAdminService creates an AdminService.
-func NewAdminService(users *store.UserStore, attachments *store.AttachmentStore, settings *store.SettingsStore) *AdminService {
-	return &AdminService{users: users, attachments: attachments, settings: settings}
+func NewAdminService(users *store.UserStore, attachments *store.AttachmentStore, settings *store.SettingsStore, moderation *store.ModerationStore) *AdminService {
+	return &AdminService{users: users, attachments: attachments, settings: settings, moderation: moderation}
 }
 
 // ListUsers returns a page of users with their roles.
@@ -79,6 +80,11 @@ func (s *AdminService) UpdateUser(ctx context.Context, id uuid.UUID, roles *[]st
 // ListMedia returns a page of attachments with owner usernames.
 func (s *AdminService) ListMedia(ctx context.Context, limit, offset int) ([]*models.AttachmentWithOwner, int64, error) {
 	return s.attachments.List(ctx, limit, offset)
+}
+
+// ListModerationLog returns a page of moderation log entries with moderator names.
+func (s *AdminService) ListModerationLog(ctx context.Context, limit, offset int) ([]models.ModerationEntry, int, error) {
+	return s.moderation.List(ctx, limit, offset)
 }
 
 // ForumSettings holds editable forum configuration.

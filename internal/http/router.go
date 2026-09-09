@@ -47,11 +47,12 @@ func NewRouter(deps Dependencies) (http.Handler, error) {
 	attachmentsStore := store.NewAttachmentStore(deps.Database.Pool())
 	mediaSvc := services.NewMediaService(attachmentsStore, users, postsStore, s3, deps.Config)
 	media := handlers.NewMedia(mediaSvc, s3)
-	postSvc := services.NewPostService(postsStore, threadsStore, attachmentsStore)
-	threadSvc := services.NewThreadService(groupsStore, threadsStore, attachmentsStore)
+	moderationStore := store.NewModerationStore(deps.Database.Pool())
+	postSvc := services.NewPostService(postsStore, threadsStore, attachmentsStore, moderationStore)
+	threadSvc := services.NewThreadService(groupsStore, threadsStore, attachmentsStore, moderationStore)
 
 	settingsStore := store.NewSettingsStore(deps.Database.Pool())
-	adminSvc := services.NewAdminService(users, attachmentsStore, settingsStore)
+	adminSvc := services.NewAdminService(users, attachmentsStore, settingsStore, moderationStore)
 	admin := handlers.NewAdmin(adminSvc)
 	publicSettings := handlers.NewPublicSettings(settingsStore)
 
@@ -101,6 +102,8 @@ func NewRouter(deps Dependencies) (http.Handler, error) {
 			r.Group(func(r chi.Router) {
 				r.Use(handlers.RequireAuth(jwtm))
 				r.Get("/me", auth.Me)
+				r.Patch("/me", auth.UpdateMe)
+				r.Post("/change-password", auth.ChangePassword)
 			})
 		})
 
@@ -170,6 +173,7 @@ func NewRouter(deps Dependencies) (http.Handler, error) {
 				r.Get("/settings", admin.GetSettings)
 				r.Put("/settings", admin.UpdateSettings)
 				r.Get("/media", admin.ListMedia)
+				r.Get("/moderation-log", admin.Log)
 			})
 		})
 

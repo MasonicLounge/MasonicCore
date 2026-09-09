@@ -81,6 +81,18 @@ func (s *SessionStore) Revoke(ctx context.Context, id uuid.UUID, at time.Time) e
 	return nil
 }
 
+// RevokeAllForUser revokes every active refresh session of a user. It is a
+// no-op when the user has no sessions.
+func (s *SessionStore) RevokeAllForUser(ctx context.Context, userID uuid.UUID) error {
+	if _, err := s.db.Exec(ctx, `
+		UPDATE user_sessions SET revoked_at = now()
+		WHERE user_id = $1 AND revoked_at IS NULL`,
+		userID); err != nil {
+		return fmt.Errorf("revoke all sessions: %w", err)
+	}
+	return nil
+}
+
 // DeleteExpired removes expired or revoked sessions. Returns rows deleted.
 func (s *SessionStore) DeleteExpired(ctx context.Context) (int64, error) {
 	tag, err := s.db.Exec(ctx, `

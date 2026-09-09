@@ -15,10 +15,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Public forum settings: `GET /api/v1/settings` returns `forum_name` for anonymous visitors (used by the frontend for the brand name and document title).
 - Публичные настройки форума: `GET /api/v1/settings` возвращает `forum_name` для анонимных посетителей (используется фронтендом для названия в шапке и заголовке вкладки).
 
+- Moderation log: new `moderation_log` table (migration `00006`) recording moderator actions (`thread_pin`, `thread_unpin`, `thread_lock`, `thread_unlock`, `thread_delete`, `post_delete`) with the acting moderator, target type/id and timestamp; moderator hooks in the thread and post services; new admin endpoint `GET /api/v1/admin/moderation-log` (paginated, with moderator names) behind the admin role.
+- Журнал модерации: новая таблица `moderation_log` (миграция `00006`) фиксирует действия модераторов (`thread_pin`, `thread_unpin`, `thread_lock`, `thread_unlock`, `thread_delete`, `post_delete`) с указанием модератора, типа/идентификатора цели и времени; хуки модерации в сервисах тем и постов; новый админ-эндпоинт `GET /api/v1/admin/moderation-log` (с пагинацией и именами модераторов) под ролью admin.
+
+- Profile editing: `PATCH /api/v1/auth/me` updates the caller's display name (empty resets it to the username), and `POST /api/v1/auth/change-password` verifies the current password, stores a new hash (argon2id) and revokes every refresh session so the user must log in again.
+- Редактирование профиля: `PATCH /api/v1/auth/me` обновляет display name текущего пользователя (пустое значение сбрасывает к имени пользователя), а `POST /api/v1/auth/change-password` проверяет текущий пароль, сохраняет новый хеш (argon2id) и отзывает все refresh-сессии — пользователь должен войти заново.
+
+- Integration tests: profile update and password change flows (display name set/reset/too-long, wrong current password, old/new password login) covered in `TestAuthFlow`.
+- Интеграционные тесты: сценарии обновления профиля и смены пароля (установка/сброс/слишком длинный display name, неверный текущий пароль, вход со старым и новым паролем) добавлены в `TestAuthFlow`.
+
 ### Changed / Изменено
 
 - README CI badge now points at the `dev` integration branch instead of `MVP`.
 - В README бейдж CI теперь указывает на интеграционную ветку `dev` вместо `MVP`.
+
+- S3/MinIO client now honours the `S3_FORCE_PATH_STYLE` config (path-style URL lookup when enabled), wiring it into `minio.Options.BucketLookup`.
+- S3/MinIO клиент теперь учитывает конфиг `S3_FORCE_PATH_STYLE` (path-style URL lookup при включении), передавая его в `minio.Options.BucketLookup`.
 
 ## [0.1.0] - 2026-09-09
 

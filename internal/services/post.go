@@ -18,11 +18,12 @@ type PostService struct {
 	posts       *store.PostStore
 	threads     *store.ThreadStore
 	attachments *store.AttachmentStore
+	moderation  *store.ModerationStore
 }
 
 // NewPostService creates a PostService.
-func NewPostService(posts *store.PostStore, threads *store.ThreadStore, attachments *store.AttachmentStore) *PostService {
-	return &PostService{posts: posts, threads: threads, attachments: attachments}
+func NewPostService(posts *store.PostStore, threads *store.ThreadStore, attachments *store.AttachmentStore, moderation *store.ModerationStore) *PostService {
+	return &PostService{posts: posts, threads: threads, attachments: attachments, moderation: moderation}
 }
 
 // ListByThread returns posts of a thread in chronological order.
@@ -108,7 +109,8 @@ func (s *PostService) Delete(ctx context.Context, id uuid.UUID, callerID uuid.UU
 	if err != nil {
 		return err
 	}
-	if p.AuthorID != callerID && !hasRole(roles, models.RoleAdmin, models.RoleModerator) {
+	moderating := p.AuthorID != callerID
+	if moderating && !hasRole(roles, models.RoleAdmin, models.RoleModerator) {
 		return ErrForbidden
 	}
 
@@ -117,6 +119,16 @@ func (s *PostService) Delete(ctx context.Context, id uuid.UUID, callerID uuid.UU
 			return ErrPostNotFound
 		}
 		return err
+	}
+
+	// A moderator removing someone else's post is a moderation action.
+	if moderating {
+		if _, err := s.moderation.Create(ctx, models.ModerationEntry{
+			ModeratorID: callerID, Action: models.ModActionPostDelete,
+			TargetType: models.ModTargetPost, TargetID: id,
+		}); err != nil {
+			return err
+		}
 	}
 	return s.threads.RecalcStats(ctx, p.ThreadID)
 }

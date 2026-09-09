@@ -19,10 +19,15 @@ type S3 struct {
 
 // New creates an S3 client, verifies connectivity and ensures the bucket exists.
 func New(ctx context.Context, cfg config.Config) (*S3, error) {
+	lookup := minio.BucketLookupAuto
+	if cfg.S3ForcePathStyle {
+		lookup = minio.BucketLookupPath
+	}
 	client, err := minio.New(cfg.S3Endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(cfg.S3AccessKey, cfg.S3SecretKey, ""),
-		Secure: cfg.S3UseSSL,
-		Region: cfg.S3Region,
+		Creds:        credentials.NewStaticV4(cfg.S3AccessKey, cfg.S3SecretKey, ""),
+		Secure:       cfg.S3UseSSL,
+		Region:       cfg.S3Region,
+		BucketLookup: lookup,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create s3 client: %w", err)

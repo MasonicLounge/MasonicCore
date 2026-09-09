@@ -105,3 +105,19 @@ func (h *Admin) ListMedia(w http.ResponseWriter, r *http.Request) {
 		"offset": offset,
 	})
 }
+
+// Log returns a page of moderation log entries.
+func (h *Admin) Log(w http.ResponseWriter, r *http.Request) {
+	limit, offset := pagination(r)
+	items, total, err := h.svc.ListModerationLog(r.Context(), limit, offset)
+	if err != nil {
+		writeCoreError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"items":  items,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	})
+}

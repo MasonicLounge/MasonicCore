@@ -39,6 +39,15 @@ type loginResponse struct {
 	Roles       []string `json:"roles,omitempty"`
 }
 
+type updateProfileRequest struct {
+	DisplayName string `json:"display_name"`
+}
+
+type changePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
+
 // Register creates a new member account.
 func (h *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	var req registerRequest
@@ -150,6 +159,67 @@ func (h *Auth) Me(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{"user": user, "roles": roles})
+}
+
+// UpdateMe patches the caller's editable profile fields (display name).
+func (h *Auth) UpdateMe(w http.ResponseWriter, r *http.Request) {
+	info, err := auth.FromContext(r.Context())
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "authentication required")
+		return
+	}
+
+	var req updateProfileRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "malformed_request", "request body is invalid")
+		return
+	}
+
+	user, err := h.svc.UpdateProfile(r.Context(), info.ID, req.DisplayName)
+	if err != nil {
+		switch {
+		case errors.Is(err, services.ErrValidation):
+			writeError(w, http.StatusBadRequest, "validation_error", err.Error())
+		case errors.Is(err, services.ErrUserNotFound):
+			writeError(w, http.StatusNotFound, "user_not_found", "user does not exist")
+		default:
+			writeServerError(w, err)
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"user": user})
+}
+
+// ChangePassword verifies the current password, stores a new hash and revokes
+// every refresh session, forcing the caller to log in again.
+func (h *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	info, err := auth.FromContext(r.Context())
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "authentication required")
+		return
+	}
+
+	var req changePasswordRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "malformed_request", "request body is invalid")
+		return
+	}
+
+	if err := h.svc.ChangePassword(r.Context(), info.ID, req.CurrentPassword, req.NewPassword); err != nil {
+		switch {
+		case errors.Is(err, services.ErrValidation):
+			writeError(w, http.StatusBadRequest, "validation_error", err.Error())
+		case errors.Is(err, services.ErrWrongPassword):
+			writeError(w, http.StatusBadRequest, "wrong_password", "current password is incorrect")
+		default:
+			writeServerError(w, err)
+		}
+		return
+	}
+
+	h.clearRefreshCookie(w)
+	writeJSON(w, http.StatusOK, map[string]any{"changed": true})
 }
 
 func (h *Auth) setRefreshCookie(w http.ResponseWriter, value string) {

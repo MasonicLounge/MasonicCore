@@ -26,6 +26,7 @@ var (
 	ErrValidation         = errors.New("validation failed")
 	ErrUsernameTaken      = errors.New("username taken")
 	ErrEmailTaken         = errors.New("email taken")
+	ErrWrongPassword      = errors.New("wrong password")
 )
 
 // Tokens is the result of a successful login or refresh.
@@ -236,6 +237,64 @@ func (s *AuthService) Profile(ctx context.Context, id uuid.UUID) (*models.User, 
 		return nil, nil, err
 	}
 	return user, roles, nil
+}
+
+const maxDisplayNameLen = 50
+
+// UpdateProfile updates the caller's editable profile fields. Currently only
+// the display name is supported; an empty name resets it to the username.
+func (s *AuthService) UpdateProfile(ctx context.Context, userID uuid.UUID, displayName string) (*models.User, error) {
+	user, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+
+	displayName = strings.TrimSpace(displayName)
+	if len(displayName) > maxDisplayNameLen {
+		return nil, fmt.Errorf("%w: display name must be at most %d chars", ErrValidation, maxDisplayNameLen)
+	}
+	if displayName == "" {
+		displayName = user.Username
+	}
+
+	return s.users.UpdateDisplayName(ctx, userID, displayName)
+}
+
+// ChangePassword verifies the current password, stores a new hash and revokes
+// every refresh session so the user must log in again.
+func (s *AuthService) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error {
+	if len(newPassword) < 8 {
+		return fmt.Errorf("%w: password must be at least 8 chars", ErrValidation)
+	}
+
+	user, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return ErrUserNotFound
+		}
+		return err
+	}
+
+	valid, err := s.hasher.Verify(currentPassword, user.PasswordHash)
+	if err != nil {
+		return fmt.Errorf("verify password: %w", err)
+	}
+	if !valid {
+		return ErrWrongPassword
+	}
+
+	hash, err := s.hasher.Hash(newPassword)
+	if err != nil {
+		return fmt.Errorf("hash password: %w", err)
+	}
+
+	if _, err := s.users.UpdatePasswordHash(ctx, userID, hash); err != nil {
+		return err
+	}
+	return s.sessions.RevokeAllForUser(ctx, userID)
 }
 
 func normalizeIP(ip string) string {
