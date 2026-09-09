@@ -34,6 +34,12 @@ type User struct {
 	LastSeenAt   *time.Time `json:"last_seen_at"`
 }
 
+// UserWithRoles embeds User and adds its role keys (admin listing).
+type UserWithRoles struct {
+	User
+	Roles []string `json:"roles"`
+}
+
 // NewUser describes a user being created.
 type NewUser struct {
 	Username     string

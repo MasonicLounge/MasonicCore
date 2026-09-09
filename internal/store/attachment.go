@@ -38,6 +38,40 @@ func (s *AttachmentStore) GetByID(ctx context.Context, id uuid.UUID) (*models.At
 	return scanAttachment(row)
 }
 
+// List returns a page of attachments ordered by creation time with owner usernames.
+func (s *AttachmentStore) List(ctx context.Context, limit, offset int) ([]*models.AttachmentWithOwner, int64, error) {
+	var total int64
+	if err := s.db.QueryRow(ctx, `SELECT count(*) FROM attachments`).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	rows, err := s.db.Query(ctx, `
+		SELECT a.id, a.owner_id, a.post_id, a.filename, a.content_type, a.size_bytes,
+		       a.storage_key, a.public_url, a.created_at, a.updated_at, u.username
+		FROM attachments a
+		JOIN users u ON u.id = a.owner_id
+		ORDER BY a.created_at DESC, a.id
+		LIMIT $1 OFFSET $2`, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	items := []*models.AttachmentWithOwner{}
+	for rows.Next() {
+		a := &models.AttachmentWithOwner{}
+		if err := rows.Scan(
+			&a.ID, &a.OwnerID, &a.PostID, &a.Filename, &a.ContentType,
+			&a.SizeBytes, &a.StorageKey, &a.PublicURL, &a.CreatedAt, &a.UpdatedAt,
+			&a.OwnerUsername,
+		); err != nil {
+			return nil, 0, err
+		}
+		items = append(items, a)
+	}
+	return items, total, rows.Err()
+}
+
 // Delete removes an attachment row by its ID. Returns ErrNotFound if it does not exist.
 func (s *AttachmentStore) Delete(ctx context.Context, id uuid.UUID) error {
 	tag, err := s.db.Exec(ctx, `DELETE FROM attachments WHERE id = $1`, id)

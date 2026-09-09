@@ -134,6 +134,78 @@ func (s *UserStore) UpdateAvatar(ctx context.Context, userID uuid.UUID, avatarUR
 	return s.scanOne(row)
 }
 
+// List returns a page of users ordered by creation time together with their roles.
+func (s *UserStore) List(ctx context.Context, limit, offset int) ([]*models.UserWithRoles, int64, error) {
+	var total int64
+	if err := s.db.QueryRow(ctx, `SELECT count(*) FROM users`).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count users: %w", err)
+	}
+
+	rows, err := s.db.Query(ctx, `
+		SELECT u.id, u.username, u.email, u.password_hash, u.display_name,
+		       u.avatar_url, u.status, u.created_at, u.updated_at, u.last_seen_at,
+		       COALESCE(array_agg(r.key ORDER BY r.key) FILTER (WHERE r.key IS NOT NULL), '{}') AS roles
+		FROM users u
+		LEFT JOIN user_roles ur ON ur.user_id = u.id
+		LEFT JOIN roles r ON r.id = ur.role_id
+		GROUP BY u.id
+		ORDER BY u.created_at DESC, u.id
+		LIMIT $1 OFFSET $2`, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list users: %w", err)
+	}
+	defer rows.Close()
+
+	items := []*models.UserWithRoles{}
+	for rows.Next() {
+		u := &models.UserWithRoles{Roles: []string{}}
+		if err := rows.Scan(
+			&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.DisplayName,
+			&u.AvatarURL, &u.Status, &u.CreatedAt, &u.UpdatedAt, &u.LastSeenAt,
+			&u.Roles,
+		); err != nil {
+			return nil, 0, fmt.Errorf("scan user: %w", err)
+		}
+		items = append(items, u)
+	}
+	return items, total, rows.Err()
+}
+
+// UpdateRoles replaces the role set of a user. The role keys must exist in the roles table.
+func (s *UserStore) UpdateRoles(ctx context.Context, userID uuid.UUID, roleKeys []string) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin roles tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, `DELETE FROM user_roles WHERE user_id = $1`, userID); err != nil {
+		return fmt.Errorf("clear roles: %w", err)
+	}
+	if len(roleKeys) > 0 {
+		tag, err := tx.Exec(ctx, `
+			INSERT INTO user_roles (user_id, role_id)
+			SELECT $1, id FROM roles WHERE key = ANY($2)`,
+			userID, roleKeys)
+		if err != nil {
+			return fmt.Errorf("assign roles: %w", err)
+		}
+		if uint64(tag.RowsAffected()) != uint64(len(roleKeys)) {
+			return fmt.Errorf("some role keys were not found (want %d, got %d)", len(roleKeys), tag.RowsAffected())
+		}
+	}
+	return tx.Commit(ctx)
+}
+
+// UpdateStatus changes the status of a user and returns the updated row.
+func (s *UserStore) UpdateStatus(ctx context.Context, userID uuid.UUID, status string) (*models.User, error) {
+	row := s.db.QueryRow(ctx, `
+		UPDATE users SET status = $2, updated_at = now()
+		WHERE id = $1
+		RETURNING `+userColumns, userID, status)
+	return s.scanOne(row)
+}
+
 func (s *UserStore) scanOne(row pgx.Row) (*models.User, error) {
 	u := &models.User{}
 	err := row.Scan(

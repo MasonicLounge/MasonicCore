@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added / Добавлено
 
+- Admin API: `GET /api/v1/admin/users` (paginated users with roles), `PATCH /api/v1/admin/users/{id}` (replace roles / change status), `GET/PUT /api/v1/admin/settings` (forum name), `GET /api/v1/admin/media` (paginated attachments with owner usernames). All endpoints require the `admin` role.
+- Admin API: `GET /api/v1/admin/users` (список пользователей с ролями с пагинацией), `PATCH /api/v1/admin/users/{id}` (замена ролей / смена статуса), `GET/PUT /api/v1/admin/settings` (имя форума), `GET /api/v1/admin/media` (список вложений с именами владельцев с пагинацией). Все эндпоинты требуют роль `admin`.
+
 - Install wizard: `GET /api/v1/install` returns setup status (`installed`, `forum_name`); `POST /api/v1/install` runs first-time setup — creates the admin user (member + admin roles) and writes `system.installed`/`forum.name` settings. Guarded: a second POST returns `409 already_installed`.
 - Мастер установки: `GET /api/v1/install` возвращает статус настройки (`installed`, `forum_name`); `POST /api/v1/install` выполняет первичную настройку — создаёт пользователя-админа (роли member + admin) и записывает настройки `system.installed`/`forum.name`. Защита: повторный POST вернёт `409 already_installed`.
 
